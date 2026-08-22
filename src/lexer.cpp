@@ -1,26 +1,11 @@
+#include "lexer.hpp"
+
 #include <cctype>
 
-#include <string>
-#include <variant>
+std::string identifier_string;
+double number_value;
 
-enum class Token {
-  // End-of-file
-  TOK_EOF,
-
-  // Commands
-  TOK_DEF,
-  TOK_EXTERN,
-
-  // Primary tokens
-  TOK_IDENTIFIER,
-  TOK_NUMBER,
-};
-
-static std::string identifier_string;
-static double number_value;
-
-/// Return the next token from standard input.
-static std::variant<Token, int> get_token() {
+int get_token() {
   static int last_char = ' ';
 
   // Skip whitespace
@@ -30,32 +15,32 @@ static std::variant<Token, int> get_token() {
 
   // Identifier: [a-zA-Z][a-zA-Z0-9]*
   if (std::isalpha(last_char)) {
-    identifier_string = last_char;
-    while (std::isalnum((last_char = std::getchar()))) {
-      identifier_string += last_char;
+    identifier_string = static_cast<char>(last_char);
+    while (std::isalnum(last_char = std::getchar())) {
+      identifier_string += static_cast<char>(last_char);
     }
 
     if (identifier_string == "def") {
-      return Token::TOK_DEF;
+      return TOKEN_DEF;
     }
     if (identifier_string == "extern") {
-      return Token::TOK_EXTERN;
+      return TOKEN_EXTERN;
     }
 
-    return Token::TOK_IDENTIFIER;
+    return TOKEN_IDENTIFIER;
   }
 
   // Number: [0-9]*\.?[0-9]+
   if (std::isdigit(last_char) || last_char == '.') {
     std::string number_str;
     do {
-      number_str += last_char;
+      number_str += static_cast<char>(last_char);
       last_char = std::getchar();
     } while (std::isdigit(last_char) || last_char == '.');
 
     number_value = std::strtod(number_str.c_str(), nullptr);
 
-    return Token::TOK_NUMBER;
+    return TOKEN_NUMBER;
   }
 
   if (last_char == '#') {
@@ -70,13 +55,13 @@ static std::variant<Token, int> get_token() {
     }
   }
 
+  // End of input has been reached
   if (last_char == EOF) {
-    return Token::TOK_EOF;
+    return TOKEN_EOF;
   }
 
   // Otherwise, just return this character as its ASCII value
-  int this_char = last_char;
-
+  const auto this_char = last_char;
   last_char = std::getchar();
 
   return this_char;

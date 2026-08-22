@@ -1,2 +1,5 @@
-# Build output directory
+### Build output directories
+# Default for VS Code's CMake extension
 /build
+# Default for CLion
+/cmake-build-*
