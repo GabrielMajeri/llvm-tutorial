@@ -6,14 +6,9 @@
 #include "ast.hpp"
 #include "lexer.hpp"
 
-// Provides a simple token buffer for the parser.
-// The global static variable `current_token` is
-// the token the parser is currently looking at.
-static int current_token;
+int current_token;
 
-// Calling `get_next_token` reads another token from the lexer
-// and updates the global variable with the result.
-static int get_next_token() { return current_token = get_token(); }
+int get_next_token() { return current_token = get_token(); }
 
 // number_expr ::= number
 std::unique_ptr<Expression> parse_number_expression() {
@@ -257,77 +252,15 @@ std::unique_ptr<FunctionPrototype> parse_extern() {
 }
 
 std::unique_ptr<FunctionDefinition> parse_top_level_expression() {
+  static int counter = 0;
   if (auto expr = parse_expression()) {
     // Make an anonymous prototype, with 0 arguments
     auto proto = std::make_unique<FunctionPrototype>(
-        "__anon_expr", std::vector<std::string>());
+        "__anon_expr_" + std::to_string(counter++), std::vector<std::string>());
 
     return std::make_unique<FunctionDefinition>(std::move(proto),
                                                 std::move(expr));
   }
 
   return nullptr;
-}
-
-static void handle_definition() {
-  if (parse_definition()) {
-    std::cerr << "Parsed a definition" << std::endl;
-  } else {
-    // Skip token for error recovery
-    get_next_token();
-  }
-}
-
-static void handle_extern() {
-  if (parse_extern()) {
-    std::cerr << "Parsed an extern" << std::endl;
-  } else {
-    // Skip token for error recovery
-    get_next_token();
-  }
-}
-
-static void handle_top_level_expression() {
-  // Evaluate a top-level expression into an anonymous function
-  if (parse_top_level_expression()) {
-    std::cerr << "Parsed a top-level expression" << std::endl;
-  } else {
-    // Skip token for error recovery
-    get_next_token();
-  }
-}
-
-// top ::= definition | external | expression | ';'
-static void main_loop() {
-  while (true) {
-    std::cout << "ready> ";
-    switch (current_token) {
-    case ';':
-      // Ignore top-level semicolons
-      get_next_token();
-      break;
-    case TOKEN_EOF:
-      // End-of-file, exit loop
-      return;
-    case TOKEN_DEF:
-      handle_definition();
-      break;
-    case TOKEN_EXTERN:
-      handle_extern();
-      break;
-    default:
-      // Treat as top-level expression
-      handle_top_level_expression();
-      break;
-    }
-  }
-}
-
-int main() {
-  // Prime the first token.
-  std::cout << "ready> ";
-  get_next_token();
-
-  // Read-Eval-Print loop (REPL)
-  main_loop();
 }

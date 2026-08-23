@@ -6,6 +6,15 @@ class Expression;
 class FunctionPrototype;
 class FunctionDefinition;
 
+// Provides a simple token buffer for the parser.
+// The global static variable `current_token` is
+// the token the parser is currently looking at.
+extern int current_token;
+
+// Calling `get_next_token` reads another token from the lexer
+// and updates the `current_token` global variable with the result.
+int get_next_token();
+
 std::unique_ptr<Expression> parse_expression();
 
 std::unique_ptr<Expression> parse_identifier_expression();
