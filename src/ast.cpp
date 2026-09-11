@@ -7,7 +7,14 @@
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/PassManager.h>
 #include <llvm/IR/Verifier.h>
+#include <llvm/Passes/PassBuilder.h>
+#include <llvm/Passes/StandardInstrumentations.h>
+#include <llvm/Transforms/InstCombine/InstCombine.h>
+#include <llvm/Transforms/Scalar/GVN.h>
+#include <llvm/Transforms/Scalar/Reassociate.h>
+#include <llvm/Transforms/Scalar/SimplifyCFG.h>
 
 using namespace llvm;
 
@@ -15,6 +22,15 @@ static std::unique_ptr<LLVMContext> llvm_context;
 static std::unique_ptr<IRBuilder<>> ir_builder;
 static std::unique_ptr<Module> llvm_module;
 static std::unordered_map<std::string, Value *> named_values;
+
+static std::unique_ptr<FunctionPassManager> function_pass_manager;
+static std::unique_ptr<LoopAnalysisManager> loop_analysis_manager;
+static std::unique_ptr<FunctionAnalysisManager> function_analysis_manager;
+static std::unique_ptr<CGSCCAnalysisManager> cgscc_analysis_manager;
+static std::unique_ptr<ModuleAnalysisManager> module_analysis_manager;
+static std::unique_ptr<PassInstrumentationCallbacks>
+    pass_instrumentation_callbacks;
+static std::unique_ptr<StandardInstrumentations> standard_instrumentations;
 
 Value *NumberExpression::codegen() const {
   return ConstantFP::get(*llvm_context, APFloat(value));
@@ -145,8 +161,11 @@ Function *FunctionDefinition::codegen() const {
     // The function's body is a single value; return it.
     ir_builder->CreateRet(return_value);
 
-    // Validate the generated code
+    // Validate the generated code, checking its consistency
     verifyFunction(*function, &outs());
+
+    // Optimize the function
+    function_pass_manager->run(*function, *function_analysis_manager);
 
     return function;
   }
@@ -166,6 +185,43 @@ void initialize_llvm() {
 
   // Create a new IR builder for our module
   ir_builder = std::make_unique<IRBuilder<>>(*llvm_context);
+
+  // Create new pass and analysis managers
+  function_pass_manager = std::make_unique<FunctionPassManager>();
+  loop_analysis_manager = std::make_unique<LoopAnalysisManager>();
+  function_analysis_manager = std::make_unique<FunctionAnalysisManager>();
+  cgscc_analysis_manager = std::make_unique<CGSCCAnalysisManager>();
+  module_analysis_manager = std::make_unique<ModuleAnalysisManager>();
+  pass_instrumentation_callbacks =
+      std::make_unique<PassInstrumentationCallbacks>();
+
+  // Enable debug logging
+  constexpr bool debug_logging = true;
+  standard_instrumentations =
+      std::make_unique<StandardInstrumentations>(*llvm_context,
+
+                                                 debug_logging);
+
+  standard_instrumentations->registerCallbacks(*pass_instrumentation_callbacks,
+                                               module_analysis_manager.get());
+
+  // Add transform passes
+  // Simple "peephole" optimizations and bit-twiddling optimizations
+  function_pass_manager->addPass(InstCombinePass());
+  // Reassociate expressions
+  function_pass_manager->addPass(ReassociatePass());
+  // Identify and eliminate common subexpressions
+  function_pass_manager->addPass(GVNPass());
+  // Simplify the control-flow graph
+  function_pass_manager->addPass(SimplifyCFGPass());
+
+  // Register the analysis passes required for the transform passes
+  PassBuilder pass_builder;
+  pass_builder.registerModuleAnalyses(*module_analysis_manager);
+  pass_builder.registerFunctionAnalyses((*function_analysis_manager));
+  pass_builder.crossRegisterProxies(
+      *loop_analysis_manager, *function_analysis_manager,
+      *cgscc_analysis_manager, *module_analysis_manager);
 }
 
 void print_generated_code() { llvm_module->print(outs(), nullptr); }
