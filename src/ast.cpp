@@ -51,7 +51,7 @@ Value *BinaryExpression::codegen() const {
 
     // Convert boolean comparison result (true or false) to double (1 or 0)
     return ir_builder->CreateUIToFP(
-        left_value, Type::getDoubleTy(*llvm_context), "booltmp");
+        compare_result, Type::getDoubleTy(*llvm_context), "booltmp");
   }
 
   default:
