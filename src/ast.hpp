@@ -72,7 +72,7 @@ public:
   FunctionPrototype(std::string name, std::vector<std::string> args)
       : name{std::move(name)}, args{std::move(args)} {}
 
-  inline const std::string &get_name() { return name; }
+  inline const std::string &get_name() const { return name; }
 
   llvm::Function *codegen() const;
 };
@@ -87,8 +87,21 @@ public:
                      std::unique_ptr<Expression> body)
       : prototype{std::move(prototype)}, body{std::move(body)} {}
 
+  const FunctionPrototype &get_prototype() const { return *prototype; }
+
   llvm::Function *codegen() const;
 };
 
+/// @brief Initializes the LLVM global context, module and pass managers.
 void initialize_llvm();
+
+/// @brief Prints out all generated code from the current IR module.
 void print_generated_code();
+
+namespace llvm::orc {
+class ThreadSafeModule;
+}
+
+/// @brief Creates a thread-safe ORC module from the current LLVM module and
+/// returns it.
+llvm::orc::ThreadSafeModule create_thread_safe_module();

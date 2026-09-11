@@ -16,6 +16,8 @@
 #include <llvm/Transforms/Scalar/Reassociate.h>
 #include <llvm/Transforms/Scalar/SimplifyCFG.h>
 
+#include "jit.hpp"
+
 using namespace llvm;
 
 static std::unique_ptr<LLVMContext> llvm_context;
@@ -182,6 +184,7 @@ void initialize_llvm() {
 
   // Create a new module (the only one we'll need)
   llvm_module = std::make_unique<Module>("Kaleidoscope JIT", *llvm_context);
+  llvm_module->setDataLayout(get_jit()->get_data_layout());
 
   // Create a new IR builder for our module
   ir_builder = std::make_unique<IRBuilder<>>(*llvm_context);
@@ -225,3 +228,7 @@ void initialize_llvm() {
 }
 
 void print_generated_code() { llvm_module->print(outs(), nullptr); }
+
+llvm::orc::ThreadSafeModule create_thread_safe_module() {
+  return {std::move(llvm_module), std::move(llvm_context)};
+}
